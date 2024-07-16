@@ -1,17 +1,22 @@
 #!/bin/bash
 
-CPU_THRESHOLD=80
-MEM_THRESHOLD=80
-EMAIL="your.email@example.com"
+LOG_FILE="/var/log/resource_usage.log"
+INTERVAL=60  # Interval in seconds between checks
 
-# Check CPU usage
-cpu_usage=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1}')
-if (( $(echo "$cpu_usage > $CPU_THRESHOLD" | bc -l) )); then
-    echo "Server $(hostname): CPU usage is at $cpu_usage%" | mail -s "CPU Usage Warning: $cpu_usage%" $EMAIL
-fi
+# Function to log CPU and memory usage
+log_usage() {
+    local cpu_usage=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1}')
+    local mem_usage=$(free | grep Mem | awk '{print $3/$2 * 100.0}')
+    local log_message="$(date): CPU usage: $cpu_usage%, Memory usage: $mem_usage%"
+    echo $log_message | tee -a $LOG_FILE
+}
 
-# Check memory usage
-mem_usage=$(free | grep Mem | awk '{print $3/$2 * 100.0}')
-if (( $(echo "$mem_usage > $MEM_THRESHOLD" | bc -l) )); then
-    echo "Server $(hostname): Memory usage is at $mem_usage%" | mail -s "Memory Usage Warning: $mem_usage%" $EMAIL
-fi
+# Create log file if it doesn't exist and set the correct permissions
+touch $LOG_FILE
+chmod 644 $LOG_FILE
+
+# Infinite loop to log usage at regular intervals
+while true; do
+    log_usage
+    sleep $INTERVAL
+done
